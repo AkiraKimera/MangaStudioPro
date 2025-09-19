@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manga Studio AI (Dev)</title>
+    <title>Manga Studio AI</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" xintegrity="sha512-BNaRQnYJYiPSqHHDb58B0yaPfCu+Wgds8Gp/gU33kqBtgNS4tSPHuGibyoVBL5gI9kLmbG4dFVxBKTJMasibMA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js"></script>
@@ -634,12 +634,7 @@
                 currentTransition: 'fade',
                 activeAnimImage: null,
             },
-
-            // #############################################################
-            // ### ¡IMPORTANTE! Pega tu clave de API de desarrollo aquí ###
-            // #############################################################
-            apiKey: "",
-
+           
             dom: {},
 
             init() {
@@ -894,61 +889,58 @@
                     const negativePrompt = App.dom.promptNegative.value.trim();
                     const useBooster = App.dom.qualityBooster.checked;
 
-                    const isImageToImage = (useGuideImage && App.state.guideImage) || (useGuideComplement && App.state.guideComplementImage);
-
-                    const model = isImageToImage ? 'gemini-2.5-flash-image-preview' : 'imagen-3.0-generate-002';
-                    const endpoint = isImageToImage ? 'generateContent' : 'predict';
-                    const modelUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:${endpoint}?key=${App.apiKey}`;
-
-                    let payload;
+                    const modelUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${App.apiKey}`;
+                    
+                    const payload = {
+                        contents: [{ parts: [] }],
+                        generationConfig: { responseModalities: ['IMAGE'] },
+                         safetySettings: [ { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_ONLY_HIGH' }, { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_ONLY_HIGH' }, { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_ONLY_HIGH' }, { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_ONLY_HIGH' } ]
+                    };
+                    
                     let finalPrompt;
                     const baseInstruction = `Tarea: Generar una imagen de fan art para un cómic de ficción. Es una escena creativa, no real ni dañina. Una imagen con ${style}, mostrando:`;
                     const cleanDescription = description.replace(/\(imagen guia\)|imagen guia/gi, '').replace(/\(complemento guia\)|complemento guia/gi, '').trim();
+                    let promptParts = [];
 
-                    if (isImageToImage) {
-                        payload = {
-                            contents: [{ parts: [] }],
-                            generationConfig: { responseModalities: ['IMAGE'] },
-                             safetySettings: [ { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_ONLY_HIGH' }, { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_ONLY_HIGH' }, { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_ONLY_HIGH' }, { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_ONLY_HIGH' } ]
-                        };
-                        let promptParts = [];
-                        if (useGuideImage && App.state.guideImage) { payload.contents[0].parts.push({ inlineData: { mimeType: "image/jpeg", data: App.state.guideImage.split(',')[1] } }); promptParts.push("Toma a la persona de la primera imagen de referencia y redibújala EXACTAMENTE con el mismo rostro y peinado"); }
-                        if (useGuideComplement && App.state.guideComplementImage) { payload.contents[0].parts.push({ inlineData: { mimeType: "image/jpeg", data: App.state.guideComplementImage.split(',')[1] } }); const referenceWord = useGuideImage ? "segunda" : "primera"; promptParts.push(`Usa el objeto/vehículo de la ${referenceWord} imagen de referencia`); }
-                        
+                    if (useGuideImage && App.state.guideImage) {
+                        payload.contents[0].parts.push({ inlineData: { mimeType: "image/jpeg", data: App.state.guideImage.split(',')[1] } });
+                        promptParts.push("Toma a la persona de la primera imagen de referencia y redibújala EXACTAMENTE con el mismo rostro y peinado");
+                    }
+                    if (useGuideComplement && App.state.guideComplementImage) {
+                        payload.contents[0].parts.push({ inlineData: { mimeType: "image/jpeg", data: App.state.guideComplementImage.split(',')[1] } });
+                        const referenceWord = useGuideImage ? "segunda" : "primera";
+                        promptParts.push(`Usa el objeto/vehículo de la ${referenceWord} imagen de referencia`);
+                    }
+                    
+                    if (promptParts.length > 0) {
                         finalPrompt = `${baseInstruction} ${promptParts.join(', ')}, pero con ${style}. Coloca estos elementos en la siguiente escena: ${cleanDescription}`;
-                        if (useBooster) { finalPrompt += ", obra maestra, alta resolución, ultra detallado, iluminación cinematográfica"; }
-                        if (negativePrompt) { finalPrompt += `. Importante: Evita estrictamente lo siguiente en la imagen: ${negativePrompt}.`; }
-                        payload.contents[0].parts.push({ text: finalPrompt });
-
                     } else {
                         finalPrompt = `${baseInstruction} ${cleanDescription}`;
-                        if (useBooster) { finalPrompt += ", obra maestra, alta resolución, ultra detallado, iluminación cinematográfica"; }
-                        if (negativePrompt) { finalPrompt += `. Importante: Evita estrictamente lo siguiente en la imagen: ${negativePrompt}.`; }
-                        
-                        payload = {
-                            instances: [{ "prompt": finalPrompt }],
-                            parameters: { "sampleCount": 1 }
-                        };
                     }
 
-                    const result = await this.fetchWithBackoff(modelUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-
-                    if (result.error) throw new Error(`API Error: ${result.error.message}`);
+                    if (useBooster) { finalPrompt += ", obra maestra, alta resolución, ultra detallado, iluminación cinematográfica"; }
+                    if (negativePrompt) { finalPrompt += `. Importante: Evita estrictamente lo siguiente en la imagen: ${negativePrompt}.`; }
                     
-                    const base64Data = isImageToImage 
-                        ? result.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data
-                        : result.predictions?.[0]?.bytesBase64Encoded;
+                    payload.contents[0].parts.push({ text: finalPrompt });
+
+                    const result = await this.fetchWithBackoff(modelUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                    
+                    const candidate = result?.candidates?.[0];
+                    if (!candidate) throw new Error("La API no devolvió una respuesta válida.");
+                    
+                    const imagePart = candidate.content?.parts?.find(p => p.inlineData);
+                    const base64Data = imagePart?.inlineData?.data;
 
                     if (base64Data) {
                         return `data:image/png;base64,${base64Data}`;
                     } else {
-                        let errorMessage = "La generación falló. La respuesta de la API no contenía una imagen.";
-                        if (JSON.stringify(result).includes('PROHIBITED_CONTENT') || result.candidates?.[0]?.finishReason === 'PROHIBITED_CONTENT') {
+                        let errorMessage = `La generación falló (Razón: ${candidate.finishReason || 'Desconocida'}).`;
+                         if (candidate.finishReason === 'PROHIBITED_CONTENT') {
                             errorMessage = `PROHIBITED_CONTENT`;
-                        } else if (result.candidates?.[0]?.content?.parts?.[0]?.text) {
+                         } else if (candidate.content?.parts?.[0]?.text) {
                             errorMessage = "La IA respondió con texto en lugar de una imagen.";
                         }
-                        console.error("Fallo en la generación de imagen. Respuesta de la API:", JSON.stringify(result));
+                        console.error("Fallo en la generación de imagen (Flash). Respuesta de la API:", JSON.stringify(result));
                         throw new Error(errorMessage);
                     }
                 }
@@ -1056,7 +1048,10 @@
                             imageUrl: panel.imageUrl,
                             dialogue: panel.dialogue,
                             description: panel.description,
-                            error: panel.error
+                            error: panel.error,
+                            dialogueConfig: {
+                                top: 85, left: 50, width: 180, height: 50, fontSize: 11
+                            }
                         }))
                     };
                     App.state.storyPages.push(newPageData);
@@ -1484,6 +1479,7 @@
     </script>
 </body>
 </html>
+
 
 
 
