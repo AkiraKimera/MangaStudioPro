@@ -857,92 +857,16 @@
             },
 
             api: {
-                async fetchWithBackoff(url, options, maxRetries = 3) {
-                    for (let attempt = 0; attempt < maxRetries; attempt++) {
-                        try {
-                            const response = await fetch(url, options);
-                            if (!response.ok) throw new Error(`API Error: ${response.status}`);
-                            return response.json();
-                        } catch (error) {
-                            if (attempt >= maxRetries - 1) throw error;
-                            await new Promise(resolve => setTimeout(resolve, 2 ** attempt * 1000));
-                        }
+                async callApi(endpoint, payload) {
+                     const response = await fetch(`/.netlify/functions/${endpoint}`, {
+                        method: 'POST',
+                        body: JSON.stringify(payload)
+                    });
+                    if (!response.ok) {
+                        const errorBody = await response.text();
+                        throw new Error(`Error from server: ${response.status} - ${errorBody}`);
                     }
-                },
-                async generateScript(prompt, tone, arc) {
-                    if (!App.apiKey) throw new Error("La clave de API de desarrollo no ha sido añadida.");
-                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${App.apiKey}`;
-                    const systemPrompt = `Eres un experto guionista de manga. Tu tarea es tomar una idea y dividirla en un máximo de 4 viñetas (panels). Debes devolver EXCLUSIVAMENTE un objeto JSON. El JSON debe ser un array donde cada objeto representa una viñeta y contiene "panel" (número), "description" (una descripción visual detallada para un generador de imágenes de IA. IMPORTANTE: Si la idea menciona 'imagen guia' para un personaje, debes incluir la frase 'imagen guia' en la descripción de ese personaje. Si menciona un 'complemento guia' para un objeto o vehículo, debes incluir la frase 'complemento guia' en la descripción de ese objeto.), y "dialogue" (un texto corto para el bocadillo de diálogo, o una cadena vacía si no hay diálogo).`;
-                    let userQuery = `Idea: "${prompt}". Divídela en 3 o 4 viñetas.`;
-                    if (arc) userQuery = `Enfócate en ${arc} de la historia. ${userQuery}`;
-                    if (tone) userQuery = `${userQuery} El tono de la historia debe ser ${tone}.`;
-                    const payload = { contents: [{ parts: [{ text: userQuery }] }], systemInstruction: { parts: [{ text: systemPrompt }] }, generationConfig: { responseMimeType: "application/json", responseSchema: { type: "ARRAY", items: { type: "OBJECT", properties: { panel: { "type": "NUMBER" }, description: { "type": "STRING" }, dialogue: { "type": "STRING" } }, required: ["panel", "description", "dialogue"] } } } };
-                    const result = await this.fetchWithBackoff(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                    const jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
-                    if (!jsonText) throw new Error("La IA no devolvió un guion válido.");
-                    return JSON.parse(jsonText);
-                },
-                async generateImageForPanel(description, useGuideImage, useGuideComplement) {
-                    if (!App.apiKey) throw new Error("La clave de API de desarrollo no ha sido añadida.");
-                    
-                    const style = App.dom.fullPageStyle.value;
-                    const negativePrompt = App.dom.promptNegative.value.trim();
-                    const useBooster = App.dom.qualityBooster.checked;
-
-                    const modelUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${App.apiKey}`;
-                    
-                    const payload = {
-                        contents: [{ parts: [] }],
-                        generationConfig: { responseModalities: ['IMAGE'] },
-                         safetySettings: [ { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_ONLY_HIGH' }, { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_ONLY_HIGH' }, { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_ONLY_HIGH' }, { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_ONLY_HIGH' } ]
-                    };
-                    
-                    let finalPrompt;
-                    const baseInstruction = `Tarea: Generar una imagen de fan art para un cómic de ficción. Es una escena creativa, no real ni dañina. Una imagen con ${style}, mostrando:`;
-                    const cleanDescription = description.replace(/\(imagen guia\)|imagen guia/gi, '').replace(/\(complemento guia\)|complemento guia/gi, '').trim();
-                    let promptParts = [];
-
-                    if (useGuideImage && App.state.guideImage) {
-                        payload.contents[0].parts.push({ inlineData: { mimeType: "image/jpeg", data: App.state.guideImage.split(',')[1] } });
-                        promptParts.push("Toma a la persona de la primera imagen de referencia y redibújala EXACTAMENTE con el mismo rostro y peinado");
-                    }
-                    if (useGuideComplement && App.state.guideComplementImage) {
-                        payload.contents[0].parts.push({ inlineData: { mimeType: "image/jpeg", data: App.state.guideComplementImage.split(',')[1] } });
-                        const referenceWord = useGuideImage ? "segunda" : "primera";
-                        promptParts.push(`Usa el objeto/vehículo de la ${referenceWord} imagen de referencia`);
-                    }
-                    
-                    if (promptParts.length > 0) {
-                        finalPrompt = `${baseInstruction} ${promptParts.join(', ')}, pero con ${style}. Coloca estos elementos en la siguiente escena: ${cleanDescription}`;
-                    } else {
-                        finalPrompt = `${baseInstruction} ${cleanDescription}`;
-                    }
-
-                    if (useBooster) { finalPrompt += ", obra maestra, alta resolución, ultra detallado, iluminación cinematográfica"; }
-                    if (negativePrompt) { finalPrompt += `. Importante: Evita estrictamente lo siguiente en la imagen: ${negativePrompt}.`; }
-                    
-                    payload.contents[0].parts.push({ text: finalPrompt });
-
-                    const result = await this.fetchWithBackoff(modelUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                    
-                    const candidate = result?.candidates?.[0];
-                    if (!candidate) throw new Error("La API no devolvió una respuesta válida.");
-                    
-                    const imagePart = candidate.content?.parts?.find(p => p.inlineData);
-                    const base64Data = imagePart?.inlineData?.data;
-
-                    if (base64Data) {
-                        return `data:image/png;base64,${base64Data}`;
-                    } else {
-                        let errorMessage = `La generación falló (Razón: ${candidate.finishReason || 'Desconocida'}).`;
-                         if (candidate.finishReason === 'PROHIBITED_CONTENT') {
-                            errorMessage = `PROHIBITED_CONTENT`;
-                         } else if (candidate.content?.parts?.[0]?.text) {
-                            errorMessage = "La IA respondió con texto en lugar de una imagen.";
-                        }
-                        console.error("Fallo en la generación de imagen (Flash). Respuesta de la API:", JSON.stringify(result));
-                        throw new Error(errorMessage);
-                    }
+                    return response.json();
                 }
             },
 
@@ -969,15 +893,14 @@
                 },
                 async runGenerationProcess(prompt, tone, arc, useGuideImage, useGuideComplement) {
                     if (App.dom.generateBtn.disabled) return;
-                     if (!App.apiKey) {
-                        App.ui.showErrorModal("La clave de API de desarrollo no ha sido añadida. Por favor, pégala en el lugar marcado al principio del script.");
-                        return;
-                    }
+                    
                     App.ui.setPageLoading(true, "Creando el guion...");
                     App.dom.pageCanvas.innerHTML = '';
                     App.dom.pageActionsWrapper.classList.add('hidden');
                     try {
-                        const script = await App.api.generateScript(prompt, tone, arc);
+                        const scriptPayload = { type: 'script', prompt, tone, arc };
+                        const script = await App.api.callApi('generate', scriptPayload);
+
                         if (!script || !Array.isArray(script) || script.length === 0) { throw new Error("La IA no devolvió un guion válido. Intenta reformular tu idea."); }
                         
                         const maxAttempts = 4;
@@ -986,16 +909,32 @@
                         
                         for (let attempt = 1; attempt <= maxAttempts && failedPanelIndexes.length > 0; attempt++) {
                             App.ui.setPageLoading(true, `Generando ${failedPanelIndexes.length} imágenes (intento ${attempt}/${maxAttempts})...`);
-                            const promisesForFailed = failedPanelIndexes.map(index => App.api.generateImageForPanel(panelData[index].description, useGuideImage, useGuideComplement));
+                            
+                            const promisesForFailed = failedPanelIndexes.map(index => {
+                                const panel = panelData[index];
+                                const imagePayload = {
+                                    type: 'image',
+                                    description: panel.description,
+                                    useGuideImage: useGuideImage,
+                                    guideImage: App.state.guideImage,
+                                    useGuideComplement: useGuideComplement,
+                                    guideComplementImage: App.state.guideComplementImage,
+                                    style: App.dom.fullPageStyle.value,
+                                    negativePrompt: App.dom.promptNegative.value.trim(),
+                                    useBooster: App.dom.qualityBooster.checked
+                                };
+                                return App.api.callApi('generate', imagePayload);
+                            });
+
                             const results = await Promise.allSettled(promisesForFailed);
                             const stillFailingIndexes = [];
                             results.forEach((result, i) => {
                                 const originalPanelIndex = failedPanelIndexes[i];
-                                if (result.status === 'fulfilled') { 
-                                    panelData[originalPanelIndex].imageUrl = result.value; 
+                                if (result.status === 'fulfilled' && result.value.imageUrl) { 
+                                    panelData[originalPanelIndex].imageUrl = result.value.imageUrl; 
                                     panelData[originalPanelIndex].error = null; 
                                 } else { 
-                                    panelData[originalPanelIndex].error = result.reason.message; 
+                                    panelData[originalPanelIndex].error = result.reason?.message || result.value?.error || 'Unknown error'; 
                                     stillFailingIndexes.push(originalPanelIndex); 
                                 }
                             });
