@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manga Studio AI</title>
+    <title>Manga Studio AI (Dev)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" xintegrity="sha512-BNaRQnYJYiPSqHHDb58B0yaPfCu+Wgds8Gp/gU33kqBtgNS4tSPHuGibyoVBL5gI9kLmbG4dFVxBKTJMasibMA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js"></script>
@@ -151,21 +151,28 @@
         ::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 10px; border: 2px solid var(--bg-dark); }
         ::-webkit-scrollbar-thumb:hover { background: #ff5e78; }
         
-        #page-canvas {
+        .page-canvas-display {
             background-color: white;
             display: grid;
             gap: 10px;
             padding: 10px;
             aspect-ratio: 2 / 3;
-            max-width: 500px;
-            margin: auto;
             border-radius: 8px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
             transition: transform 0.3s ease;
         }
-        #page-canvas:hover {
+        #page-canvas.page-canvas-display:hover {
             transform: scale(1.02);
         }
+        
+        .story-page-wrapper .page-canvas-display:hover {
+            transform: none;
+        }
+        .story-page-wrapper {
+             width: calc(33.33% - 2rem);
+             transition: width 0.3s ease;
+        }
+
 
         .manga-panel {
             border: 2px solid #1a1a2e;
@@ -173,17 +180,26 @@
             background-position: center;
             position: relative;
             overflow: hidden;
-            background-color: #f0f0f0;
+            background-color: #e0e0e0;
             border-radius: 4px;
+            transition: border-color 0.2s ease, transform 0.2s ease;
         }
+        .manga-panel[draggable="true"]:hover {
+            cursor: grab;
+            transform: scale(1.05);
+            border-color: var(--primary);
+        }
+        .manga-panel.drag-over {
+             border-color: var(--primary);
+             border-style: dashed;
+             transform: scale(1.03);
+        }
+
 
         .dialogue-bubble {
             position: absolute;
-            bottom: 8%;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 85%;
-            max-width: 250px;
+            /* bottom, left, transform, width are now set via inline styles */
+            max-width: 95%;
             background-color: white;
             color: black;
             padding: 8px 12px;
@@ -193,8 +209,9 @@
             font-weight: 600;
             text-align: center;
             box-shadow: 0 4px 6px rgba(0,0,0,0.2);
-            font-size: 11px;
+            /* font-size, line-height are now set via inline styles */
             line-height: 1.3;
+            pointer-events: none; /* So it doesn't interfere with drag/drop */
         }
         .dialogue-bubble::after {
             content: '';
@@ -208,13 +225,90 @@
             bottom: -7px;
             left: 30%;
         }
+
+        .dialogue-editor-wrapper {
+            position: absolute;
+            z-index: 10;
+            cursor: move;
+            border: 2px dashed var(--primary);
+            border-radius: 8px;
+            background: rgba(255,255,255,0.2);
+        }
+        .dialogue-editor {
+            width: 100%;
+            height: 100%;
+            background-color: #ffffe0;
+            color: black;
+            border: none;
+            font-family: 'Poppins', sans-serif;
+            font-weight: 600;
+            text-align: center;
+            line-height: 1.3;
+            resize: none;
+            padding: 8px;
+            border-radius: 6px;
+        }
+        .dialogue-editor:focus {
+            outline: none;
+        }
+
+        .resize-handle {
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            background: var(--primary);
+            border: 2px solid white;
+            border-radius: 50%;
+            right: -8px;
+            bottom: -8px;
+            cursor: se-resize;
+            z-index: 11;
+        }
+        .font-size-controls {
+            position: absolute;
+            top: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 5px;
+            background: var(--bg-medium);
+            padding: 4px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+        .font-size-btn {
+            width: 24px;
+            height: 24px;
+            background: var(--secondary);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            font-weight: bold;
+            cursor: pointer;
+        }
+       
         .db-font {
             font-family: 'Bangers', cursive;
             letter-spacing: 2px;
-            -webkit-text-stroke: 1.5px black;
+            color: #F57C00;
+            text-shadow: 
+                1px 1px 0 #FFB300,
+                -1px -1px 0 #E65100,
+                3px 3px 0 #A62624,
+                5px 5px 0 rgba(0,0,0,0.75),
+                6px 6px 10px rgba(0,0,0,0.5);
+        }
+        .db-font-ai {
+            color: #D32F2F;
+            text-shadow: 
+                1px 1px 0 #FF5252,
+                -1px -1px 0 #B71C1C,
+                3px 3px 0 #4E342E,
+                5px 5px 0 rgba(0,0,0,0.75),
+                6px 6px 10px rgba(0,0,0,0.5);
         }
 
-        /* --- Animation Preview --- */
+
         #animation-preview-container {
             position: relative;
             overflow: hidden;
@@ -233,38 +327,56 @@
         .anim-img-visible {
             opacity: 1;
         }
-
-        /* --- Transition Effects --- */
-        /* Fade */
         .fade-out { opacity: 0 !important; }
         .fade-in { opacity: 1 !important; }
-
-        /* Slide */
         .slide-out { transform: translateX(-100%); opacity: 0; }
         .slide-in { transform: translateX(0); opacity: 1; }
         .slide-in-initial { transform: translateX(100%); opacity: 0; }
-
-
     </style>
+    <style id="dynamic-story-styles"></style>
 </head>
 <body class="min-h-screen">
 
     <div class="container mx-auto p-4 md:p-8">
-        <header class="text-center mb-10">
-            <div class="flex items-center justify-center gap-4">
-                <svg class="w-12 h-12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <circle cx="12" cy="12" r="10" fill="#F57C00" stroke="#000000" stroke-width="1"></circle>
-                    <path d="M12 7L13.53 10.96L18 10.96L14.73 13.54L16.26 17.5L12 15.04L7.74 17.5L9.27 13.54L6 10.96L10.47 10.96L12 7Z" fill="#D32F2F" stroke="#BF240A" stroke-width="0.5"></path>
+        <header class="relative text-center mb-10">
+            <button id="music-toggle-btn" class="absolute top-0 right-0 p-2 text-text-medium hover:text-white transition-colors">
+                <svg id="music-icon-on" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
                 </svg>
-                <h1 class="text-4xl md:text-5xl font-bold text-orange-500 db-font">
-                    Manga Studio <span class="text-red-600">AI</span>
+                <svg id="music-icon-off" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15zM17 14l-4-4m0 4l4-4" />
+                </svg>
+            </button>
+            <div class="flex items-center justify-center gap-4">
+                <svg class="w-16 h-16" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-labelledby="dragonball-title" role="img" style="filter: drop-shadow(0 4px 8px rgba(0,0,0,0.6));">
+                    <title id="dragonball-title">Esfera del Dragón de Cuatro Estrellas</title>
+                    <defs>
+                        <radialGradient id="ballGradient" cx="30%" cy="30%" r="70%" fx="35%" fy="35%">
+                            <stop offset="0%" stop-color="#FFD180" />
+                            <stop offset="50%" stop-color="#FFAB40" />
+                            <stop offset="100%" stop-color="#E65100" />
+                        </radialGradient>
+                        <g id="star">
+                             <path d="M10 0 L7.76 6.9 H0 L6.18 11.18 L3.92 18.09 L10 13.82 L16.08 18.09 L13.82 11.18 L20 6.9 H12.24 Z" fill="#D50000" stroke="#8E0000" stroke-width="1.2" />
+                        </g>
+                    </defs>
+                    <circle cx="50" cy="50" r="48" fill="url(#ballGradient)" stroke="#4E342E" stroke-width="2.5" />
+                    <path d="M 30 20 A 40 40 0 0 1 75 25 A 55 55 0 0 1 65 75 A 40 30 0 0 0 25 30 Z" fill="white" fill-opacity="0.3" />
+                    <g transform="translate(50 50) scale(1.4)">
+                        <use href="#star" transform="translate(-10 -20)" />
+                        <use href="#star" transform="translate(-20 -5)" />
+                        <use href="#star" transform="translate(0 -5)" />
+                        <use href="#star" transform="translate(-10, 10)" />
+                    </g>
+                </svg>
+                <h1 class="text-5xl md:text-6xl font-bold db-font">
+                    Manga Studio <span class="db-font-ai">AI</span>
                 </h1>
                 <span class="text-sm font-semibold align-top bg-yellow-400 text-black rounded-full px-3 py-1 shadow-lg animate-pulse">PRO</span>
             </div>
             <p class="text-lg text-text-medium mt-2">Tu estudio creativo para dar vida a tus historias</p>
         </header>
 
-        <!-- Pestañas de Navegación -->
         <nav class="flex flex-wrap justify-center mb-10 border-b border-border-color">
             <button data-tab="page" class="tab-btn active text-lg font-semibold py-4 px-6 text-text-medium">Generador</button>
             <button data-tab="story" class="tab-btn text-lg font-semibold py-4 px-6 text-text-medium">Historia</button>
@@ -272,7 +384,6 @@
         </nav>
 
         <main>
-            <!-- Panel Generador de Páginas -->
             <div id="page-panel" data-panel="page">
                 <div class="glass-card p-6 md:p-8">
                     <div class="max-w-4xl mx-auto">
@@ -356,7 +467,6 @@
                             </div>
                         </div>
 
-                        <!-- Potenciadores de Calidad -->
                         <div class="glass-card p-4 my-6 border border-sky-400/30">
                             <h4 class="text-lg font-semibold mb-4 text-center text-sky-300">Potenciadores de Calidad (Opcional)</h4>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -374,7 +484,6 @@
                             </div>
                         </div>
 
-
                         <button id="generate-full-page-btn" class="btn btn-primary w-full text-lg">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
                             ¡Crear Página Mágica!
@@ -386,7 +495,7 @@
                         </div>
                         
                         <div id="page-result-area" class="mt-8">
-                            <div id="page-canvas">
+                            <div id="page-canvas" class="page-canvas-display">
                                 <div class="manga-panel flex items-center justify-center text-center text-text-medium p-4">
                                     <p>Tu página de manga aparecerá aquí.</p>
                                 </div>
@@ -406,12 +515,25 @@
                 </div>
             </div>
             
-            <!-- Panel Editor de Historia -->
             <div id="story-panel" data-panel="story" class="hidden">
                 <div class="glass-card p-6 md:p-8">
-                    <h2 class="text-3xl font-bold mb-2 text-white text-center">Editor de Historia</h2>
-                    <p class="text-center text-text-medium mb-8">Aquí se guardan todas las páginas de tu manga. Organiza, previsualiza y descarga tu obra completa.</p>
-                    <div id="story-board-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                     <div class="flex flex-wrap justify-between items-center mb-6 gap-4">
+                        <div>
+                            <h2 class="text-3xl font-bold text-white">Editor de Historia</h2>
+                            <p class="text-text-medium">Arrastra y suelta viñetas para reorganizar tu manga.</p>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <div class="flex items-center gap-2">
+                                <label for="zoom-slider" class="text-sm font-semibold">Zoom:</label>
+                                <input type="range" id="zoom-slider" min="20" max="45" value="31" class="w-32">
+                            </div>
+                            <button id="add-blank-page-btn" class="btn btn-secondary">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                Página en Blanco
+                            </button>
+                        </div>
+                    </div>
+                    <div id="story-board-container" class="flex flex-wrap justify-center gap-8">
                         <div id="story-placeholder" class="col-span-full text-center text-text-medium p-10 border-2 border-dashed border-border-color rounded-lg">
                             <p class="text-lg">Tu historia está en blanco.</p>
                             <p>Ve al "Generador" para empezar a crear y añadir tus páginas aquí.</p>
@@ -467,8 +589,7 @@
             </div>
         </main>
     </div>
-    
-    <!-- Modals -->
+        
     <div id="error-modal" class="hidden fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
         <div class="bg-gray-800 border border-red-500 rounded-lg p-6 max-w-sm w-full text-center shadow-lg">
             <h3 class="text-xl font-bold text-red-500 mb-2">Error</h3>
@@ -499,17 +620,25 @@
                 animationFrames: [],
                 storyPages: [],
                 isPlaying: false,
+                isMusicPlaying: false,
+                audioPlayer: null,
                 animationInterval: null,
                 fps: 5,
                 guideImage: null,
                 guideComplementImage: null,
                 lastGeneratedScript: null,
-                lastPrompt: '',
+                lastGeneratedLayout: null,
+                draggedPanelInfo: null,
                 useGuideImageForCurrentStory: false,
                 useGuideComplementForCurrentStory: false,
                 currentTransition: 'fade',
                 activeAnimImage: null,
             },
+
+            // #############################################################
+            // ### ¡IMPORTANTE! Pega tu clave de API de desarrollo aquí ###
+            // #############################################################
+            apiKey: "",
 
             dom: {},
 
@@ -520,6 +649,13 @@
             },
 
             cacheDom() {
+                this.dom.musicToggleBtn = document.getElementById('music-toggle-btn');
+                this.dom.musicIconOn = document.getElementById('music-icon-on');
+                this.dom.musicIconOff = document.getElementById('music-icon-off');
+                this.dom.addBlankPageBtn = document.getElementById('add-blank-page-btn');
+                this.dom.zoomSlider = document.getElementById('zoom-slider');
+                this.dom.dynamicStoryStyles = document.getElementById('dynamic-story-styles');
+
                 this.dom.tabButtons = document.querySelectorAll('.tab-btn');
                 this.dom.panels = document.querySelectorAll('[data-panel]');
                 this.dom.guideImageUpload = document.getElementById('guide-image-upload');
@@ -568,14 +704,17 @@
             },
 
             bindEvents() {
+                this.dom.musicToggleBtn.addEventListener('click', () => this.handlers.toggleMusic());
+                this.dom.addBlankPageBtn.addEventListener('click', () => this.flows.addBlankPage());
+                this.dom.zoomSlider.addEventListener('input', (e) => this.handlers.handleZoomChange(e));
                 this.dom.tabButtons.forEach(btn => btn.addEventListener('click', () => this.ui.switchTab(btn.dataset.tab)));
                 this.dom.generateBtn.addEventListener('click', () => this.flows.generateFullPage());
                 this.dom.continueBtn.addEventListener('click', () => this.flows.continueStory());
                 this.dom.addToStoryBtn.addEventListener('click', () => this.flows.addPageToStory());
-                this.dom.guideImageUpload.addEventListener('change', (e) => this.handlers.handleGuideImageUpload(e));
-                this.dom.removeGuideImageBtn.addEventListener('click', (e) => this.handlers.handleRemoveGuideImage(e));
-                this.dom.guideComplementUpload.addEventListener('change', (e) => this.handlers.handleGuideComplementUpload(e));
-                this.dom.removeGuideComplementBtn.addEventListener('click', (e) => this.handlers.handleRemoveGuideComplement(e));
+                this.dom.guideImageUpload.addEventListener('change', (e) => this.handlers.handleGuideImageUpload(e, 'guideImage'));
+                this.dom.removeGuideImageBtn.addEventListener('click', (e) => this.handlers.handleRemoveGuideImage(e, 'guideImage'));
+                this.dom.guideComplementUpload.addEventListener('change', (e) => this.handlers.handleGuideImageUpload(e, 'guideComplementImage'));
+                this.dom.removeGuideComplementBtn.addEventListener('click', (e) => this.handlers.handleRemoveGuideImage(e, 'guideComplementImage'));
                 this.dom.playPauseBtn.addEventListener('click', () => this.animation.toggle());
                 this.dom.clearAnimationBtn.addEventListener('click', () => this.animation.clear());
                 this.dom.fpsSlider.addEventListener('input', (e) => this.animation.setFps(e.target.value));
@@ -583,32 +722,28 @@
                 this.dom.downloadAnimationBtn.addEventListener('click', () => this.animation.download());
                 this.dom.closeErrorModalBtn.addEventListener('click', () => this.ui.showErrorModal(null));
                 this.dom.closeDownloadModalBtn.addEventListener('click', () => this.ui.showDownloadModal(null));
-                this.dom.storyBoardContainer.addEventListener('click', (e) => this.handlers.handleStoryBoardClick(e));
+                
+                // Event delegation for story board
+                const storyBoard = this.dom.storyBoardContainer;
+                storyBoard.addEventListener('dragstart', (e) => this.handlers.handleDragStart(e));
+                storyBoard.addEventListener('dragover', (e) => this.handlers.handleDragOver(e));
+                storyBoard.addEventListener('dragleave', (e) => this.handlers.handleDragLeave(e));
+                storyBoard.addEventListener('drop', (e) => this.handlers.handleDrop(e));
+                storyBoard.addEventListener('click', (e) => this.handlers.handleStoryBoardClick(e));
+                storyBoard.addEventListener('dblclick', (e) => this.handlers.handleStoryBoardDblClick(e));
             },
             
             render() {
                 this.ui.updateTabUI();
                 this.ui.updateStoryEditorUI();
                 this.ui.updateAnimationFramesUI();
+                this.handlers.handleZoomChange({ target: this.dom.zoomSlider }); // Apply initial zoom
             },
             
             ui: {
-                switchTab(tabName) {
-                    App.state.activeTab = tabName;
-                    App.render();
-                },
-                updateTabUI() {
-                    App.dom.panels.forEach(p => p.classList.toggle('hidden', p.dataset.panel !== App.state.activeTab));
-                    App.dom.tabButtons.forEach(b => b.classList.toggle('active', b.dataset.tab === App.state.activeTab));
-                },
-                showErrorModal(message) {
-                    if (message) {
-                        App.dom.errorMessage.textContent = message;
-                        App.dom.errorModal.classList.remove('hidden');
-                    } else {
-                        App.dom.errorModal.classList.add('hidden');
-                    }
-                },
+                switchTab(tabName) { App.state.activeTab = tabName; App.render(); },
+                updateTabUI() { App.dom.panels.forEach(p => p.classList.toggle('hidden', p.dataset.panel !== App.state.activeTab)); App.dom.tabButtons.forEach(b => b.classList.toggle('active', b.dataset.tab === App.state.activeTab)); },
+                showErrorModal(message) { if (message) { App.dom.errorMessage.textContent = message; App.dom.errorModal.classList.remove('hidden'); } else { App.dom.errorModal.classList.add('hidden'); } },
                 showDownloadModal(linkElement) {
                     const { downloadModal, downloadModalContent } = App.dom;
                     if (linkElement) {
@@ -618,63 +753,63 @@
                     } else {
                         downloadModal.classList.add('hidden');
                         const oldLink = downloadModalContent.querySelector('a');
-                        if (oldLink && oldLink.href.startsWith('blob:')) {
-                            URL.revokeObjectURL(oldLink.href);
-                        }
+                        if (oldLink && oldLink.href.startsWith('blob:')) { URL.revokeObjectURL(oldLink.href); }
                     }
                 },
-                showToast(message) {
-                    App.dom.toastMessage.textContent = message;
-                    App.dom.toast.classList.remove('hidden');
-                    setTimeout(() => App.dom.toast.classList.add('hidden'), 3000);
-                },
-                setPageLoading(isLoading, text = '') {
-                    App.dom.generateBtn.disabled = isLoading;
-                    App.dom.continueBtn.disabled = isLoading;
-                    App.dom.downloadAnimationBtn.disabled = isLoading;
-                    App.dom.pageLoader.classList.toggle('hidden', !isLoading);
-                    App.dom.pageLoader.classList.toggle('flex', isLoading);
-                    App.dom.pageLoaderText.textContent = text;
-                },
-                renderGeneratedPage(panelData) {
-                    const { pageCanvas } = App.dom;
-                    pageCanvas.innerHTML = '';
-                    const panelCount = panelData.length;
-                    
-                    if (panelCount === 0) {
-                        pageCanvas.innerHTML = '<div class="manga-panel flex items-center justify-center text-center text-gray-500 p-4"><p>No se generaron viñetas.</p></div>';
-                        return;
-                    }
-
-                    const layouts = {
-                        1: { grid: 'grid-cols-1 grid-rows-1', panels: ['col-span-1 row-span-1'] },
-                        2: [{ grid: 'grid-cols-1 grid-rows-2', panels: ['row-span-1', 'row-span-1'] }, { grid: 'grid-cols-2 grid-rows-1', panels: ['col-span-1', 'col-span-1'] }],
-                        3: [{ grid: 'grid-cols-2 grid-rows-2', panels: ['col-span-2 row-span-1', 'col-span-1 row-span-1', 'col-span-1 row-span-1'] }, { grid: 'grid-cols-2 grid-rows-2', panels: ['col-span-1 row-span-2', 'col-span-1 row-span-1', 'col-span-1 row-span-1'] }],
-                        4: [{ grid: 'grid-cols-2 grid-rows-2', panels: ['col-span-1', 'col-span-1', 'col-span-1', 'col-span-1'] }, { grid: 'grid-cols-2 grid-rows-3', panels: ['col-span-2 row-span-1', 'col-span-1 row-span-2', 'col-span-1 row-span-2'] }]
-                    };
-
-                    let selectedLayout = layouts[panelCount] ? (Array.isArray(layouts[panelCount]) ? layouts[panelCount][Math.floor(Math.random() * layouts[panelCount].length)] : layouts[panelCount]) : { grid: 'grid-cols-1', panels: [] };
-                    
-                    pageCanvas.className = 'grid p-2.5 gap-2.5 aspect-[2/3] max-w-[500px] mx-auto shadow-lg bg-white';
-                    pageCanvas.classList.add(...selectedLayout.grid.split(' '));
-
-                    panelData.forEach((data, index) => {
+                showToast(message) { App.dom.toastMessage.textContent = message; App.dom.toast.classList.remove('hidden'); setTimeout(() => App.dom.toast.classList.add('hidden'), 3000); },
+                setPageLoading(isLoading, text = '') { App.dom.generateBtn.disabled = isLoading; App.dom.continueBtn.disabled = isLoading; App.dom.downloadAnimationBtn.disabled = isLoading; App.dom.pageLoader.classList.toggle('hidden', !isLoading); App.dom.pageLoader.classList.toggle('flex', isLoading); App.dom.pageLoaderText.textContent = text; },
+                renderPage(container, pageData) {
+                    container.innerHTML = '';
+                    container.className = `page-canvas-display ${pageData.layout.grid}`;
+                    pageData.panels.forEach((panelData, index) => {
                         const panel = document.createElement('div');
-                        panel.className = `manga-panel ${selectedLayout.panels[index] || ''}`;
-                        if (data.imageUrl) {
-                             panel.style.backgroundImage = `url(${data.imageUrl})`;
-                        } else {
-                            panel.innerHTML = `<div class="flex items-center justify-center h-full text-xs text-center text-red-500 bg-red-100 p-1">Error al generar imagen</div>`;
-                        }
+                        panel.className = `manga-panel ${pageData.layout.panels[index] || ''}`;
+                        panel.dataset.pageId = pageData.id;
+                        panel.dataset.panelId = panelData.id;
+                        panel.draggable = true;
 
-                        if (data.dialogue) {
+                        if (panelData.imageUrl) {
+                            panel.style.backgroundImage = `url(${panelData.imageUrl})`;
+                        } else if (panelData.error) {
+                             const errorMsg = panelData.error.includes('PROHIBITED_CONTENT') ? "Bloqueado por seguridad. Prueba una descripción diferente." : "Error al generar imagen.";
+                             panel.innerHTML = `<div class="flex items-center justify-center h-full text-xs text-center text-red-500 bg-red-100 p-1">${errorMsg}</div>`;
+                        }
+                        if (panelData.dialogue) {
                             const bubble = document.createElement('div');
                             bubble.className = 'dialogue-bubble';
-                            bubble.textContent = data.dialogue;
+                            bubble.textContent = panelData.dialogue;
+                            // Apply custom styles if they exist
+                            if (panelData.dialogueConfig) {
+                                const { top, left, width, height, fontSize } = panelData.dialogueConfig;
+                                bubble.style.top = `${top}%`;
+                                bubble.style.left = `${left}%`;
+                                bubble.style.width = `${width}px`;
+                                bubble.style.height = `${height}px`;
+                                bubble.style.fontSize = `${fontSize}px`;
+                                bubble.style.transform = 'translate(-50%, -50%)'; // Use a more accurate transform for centered positioning
+                            } else {
+                                // Default styles for bubbles without custom config
+                                bubble.style.bottom = '8%';
+                                bubble.style.left = '50%';
+                                bubble.style.width = '85%';
+                                bubble.style.transform = 'translateX(-50%)';
+                            }
                             panel.appendChild(bubble);
                         }
-                        pageCanvas.appendChild(panel);
+                        container.appendChild(panel);
                     });
+                },
+                renderGeneratedPage(panelData) {
+                    const layout = App.flows.getLayoutForPanels(panelData.length);
+                    App.state.lastGeneratedLayout = layout; // Save layout for storing
+                    App.state.lastGeneratedScript = panelData; // Save the final panel data with images
+                    
+                    const pageData = {
+                        id: 'generator-canvas',
+                        layout: layout,
+                        panels: panelData.map((p, i) => ({...p, id: `gen-panel-${i}`}))
+                    };
+                    this.renderPage(App.dom.pageCanvas, pageData);
                 },
                 updateStoryEditorUI() {
                     const { storyBoardContainer, storyPlaceholder } = App.dom;
@@ -682,18 +817,26 @@
                     if (App.state.storyPages.length === 0) {
                         storyBoardContainer.appendChild(storyPlaceholder);
                     } else {
-                        App.state.storyPages.forEach((src, index) => {
+                        App.state.storyPages.forEach((pageData, pageIndex) => {
                             const pageWrapper = document.createElement('div');
-                            pageWrapper.className = 'relative group border-2 border-border-color rounded-lg overflow-hidden shadow-lg';
-                            pageWrapper.innerHTML = `
-                                <img src="${src}" class="w-full h-auto object-contain" />
-                                <div class="absolute top-2 left-2 bg-black/70 text-white rounded-full h-8 w-8 flex items-center justify-center font-bold">${index + 1}</div>
-                                <div class="absolute inset-0 bg-black/70 flex flex-col items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button data-action="add-to-animation" data-index="${index}" class="btn btn-secondary py-2 px-4 text-sm">&#x2728; A Animación</button>
-                                    <button data-action="download" data-index="${index}" class="btn btn-primary py-2 px-4 text-sm">&#x21E9; Descargar</button>
-                                    <button data-action="delete" data-index="${index}" class="bg-red-600 hover:bg-red-700 text-white btn py-2 px-4 text-sm">&#x1F5D1; Eliminar</button>
+                            pageWrapper.className = 'story-page-wrapper';
+                            
+                            const pageHeader = document.createElement('div');
+                            pageHeader.className = 'flex justify-between items-center mb-2';
+                            pageHeader.innerHTML = `
+                                <div class="bg-black/70 text-white rounded-full h-8 w-8 flex items-center justify-center font-bold">${pageIndex + 1}</div>
+                                <div class="flex gap-2">
+                                    <button data-action="add-to-animation" data-page-id="${pageData.id}" class="btn btn-secondary !p-2" title="Añadir a Animación">&#x2728;</button>
+                                    <button data-action="download" data-page-id="${pageData.id}" class="btn btn-primary !p-2" title="Descargar Página">&#x21E9;</button>
+                                    <button data-action="delete" data-page-id="${pageData.id}" class="bg-red-600 hover:bg-red-700 text-white btn !p-2" title="Eliminar Página">&#x1F5D1;</button>
                                 </div>
                             `;
+                            
+                            const pageCanvas = document.createElement('div');
+                            this.renderPage(pageCanvas, pageData);
+                            
+                            pageWrapper.appendChild(pageHeader);
+                            pageWrapper.appendChild(pageCanvas);
                             storyBoardContainer.appendChild(pageWrapper);
                         });
                     }
@@ -703,11 +846,8 @@
                     animationFramesContainer.innerHTML = '';
                     if (App.state.animationFrames.length === 0) {
                         framesPlaceholder.classList.remove('hidden');
-                        animImg1.classList.add('anim-img-hidden');
-                        animImg2.classList.add('anim-img-hidden');
-                        animImg1.src = '';
-                        animImg2.src = '';
-
+                        animImg1.classList.add('anim-img-hidden'); animImg2.classList.add('anim-img-hidden');
+                        animImg1.src = ''; animImg2.src = '';
                     } else {
                         framesPlaceholder.classList.add('hidden');
                         App.state.animationFrames.forEach(src => {
@@ -716,106 +856,98 @@
                             wrapper.innerHTML = `<img src="${src}" class="w-full h-auto object-contain rounded-md">`;
                             animationFramesContainer.appendChild(wrapper);
                         });
-                        
-                        if (!animImg1.src) {
-                            animImg1.src = App.state.animationFrames[0];
-                            animImg1.classList.remove('anim-img-hidden');
-                            App.state.activeAnimImage = animImg1;
-                        }
+                        if (!animImg1.src) { animImg1.src = App.state.animationFrames[0]; animImg1.classList.remove('anim-img-hidden'); App.state.activeAnimImage = animImg1; }
                     }
                 }
             },
 
             api: {
-                // NEW: This is our secure way to talk to the backend function
-                async callProxy(target, payload) {
-                    const proxyUrl = '/.netlify/functions/generate'; // The URL to our new function
-                    try {
-                        const response = await fetch(proxyUrl, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ target, payload })
-                        });
-                        if (!response.ok) {
-                            const errorText = await response.text();
-                            throw new Error(`Error from server: ${response.status} - ${errorText}`);
+                async fetchWithBackoff(url, options, maxRetries = 3) {
+                    for (let attempt = 0; attempt < maxRetries; attempt++) {
+                        try {
+                            const response = await fetch(url, options);
+                            if (!response.ok) throw new Error(`API Error: ${response.status}`);
+                            return response.json();
+                        } catch (error) {
+                            if (attempt >= maxRetries - 1) throw error;
+                            await new Promise(resolve => setTimeout(resolve, 2 ** attempt * 1000));
                         }
-                        return response.json();
-                    } catch (error) {
-                        console.error(`Error calling proxy function [${target}]:`, error);
-                        throw error;
                     }
                 },
-
                 async generateScript(prompt, tone, arc) {
+                    if (!App.apiKey) throw new Error("La clave de API de desarrollo no ha sido añadida.");
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${App.apiKey}`;
                     const systemPrompt = `Eres un experto guionista de manga. Tu tarea es tomar una idea y dividirla en un máximo de 4 viñetas (panels). Debes devolver EXCLUSIVAMENTE un objeto JSON. El JSON debe ser un array donde cada objeto representa una viñeta y contiene "panel" (número), "description" (una descripción visual detallada para un generador de imágenes de IA. IMPORTANTE: Si la idea menciona 'imagen guia' para un personaje, debes incluir la frase 'imagen guia' en la descripción de ese personaje. Si menciona un 'complemento guia' para un objeto o vehículo, debes incluir la frase 'complemento guia' en la descripción de ese objeto.), y "dialogue" (un texto corto para el bocadillo de diálogo, o una cadena vacía si no hay diálogo).`;
                     let userQuery = `Idea: "${prompt}". Divídela en 3 o 4 viñetas.`;
                     if (arc) userQuery = `Enfócate en ${arc} de la historia. ${userQuery}`;
                     if (tone) userQuery = `${userQuery} El tono de la historia debe ser ${tone}.`;
-
-                    // This is the data we'll send to our backend function
-                    const payload = {
-                        contents: [{ parts: [{ text: userQuery }] }],
-                        systemInstruction: { parts: [{ text: systemPrompt }] },
-                        generationConfig: { responseMimeType: "application/json", responseSchema: { type: "ARRAY", items: { type: "OBJECT", properties: { panel: { "type": "NUMBER" }, description: { "type": "STRING" }, dialogue: { "type": "STRING" } }, required: ["panel", "description", "dialogue"] } } }
-                    };
-
-                    const result = await this.callProxy('script', payload); // Call our secure function
+                    const payload = { contents: [{ parts: [{ text: userQuery }] }], systemInstruction: { parts: [{ text: systemPrompt }] }, generationConfig: { responseMimeType: "application/json", responseSchema: { type: "ARRAY", items: { type: "OBJECT", properties: { panel: { "type": "NUMBER" }, description: { "type": "STRING" }, dialogue: { "type": "STRING" } }, required: ["panel", "description", "dialogue"] } } } };
+                    const result = await this.fetchWithBackoff(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                     const jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
                     if (!jsonText) throw new Error("La IA no devolvió un guion válido.");
                     return JSON.parse(jsonText);
                 },
-
                 async generateImageForPanel(description, useGuideImage, useGuideComplement) {
+                    if (!App.apiKey) throw new Error("La clave de API de desarrollo no ha sido añadida.");
+                    
                     const style = App.dom.fullPageStyle.value;
                     const negativePrompt = App.dom.promptNegative.value.trim();
                     const useBooster = App.dom.qualityBooster.checked;
-                    
-                    const payload = { contents: [{ parts: [] }], generationConfig: { responseModalities: ['IMAGE'] } };
-                    
-                    const wantsToUseGuide = useGuideImage && description.toLowerCase().includes('imagen guia');
-                    const wantsToUseComplement = useGuideComplement && description.toLowerCase().includes('complemento guia');
-                    const cleanDescription = description.replace(/\(imagen guia\)|imagen guia/gi, '').replace(/\(complemento guia\)|complemento guia/gi, '').trim();
-                    
-                    let promptParts = [];
 
-                    if (wantsToUseGuide && App.state.guideImage) {
-                        payload.contents[0].parts.push({ inlineData: { mimeType: "image/png", data: App.state.guideImage.split(',')[1] } });
-                        promptParts.push("Toma a la persona de la primera imagen de referencia y redibújala EXACTAMENTE con el mismo rostro y peinado");
-                    }
+                    const isImageToImage = (useGuideImage && App.state.guideImage) || (useGuideComplement && App.state.guideComplementImage);
 
-                    if (wantsToUseComplement && App.state.guideComplementImage) {
-                        payload.contents[0].parts.push({ inlineData: { mimeType: "image/jpeg", data: App.state.guideComplementImage.split(',')[1] } });
-                        const referenceWord = wantsToUseGuide ? "segunda" : "primera";
-                        promptParts.push(`Usa el objeto/vehículo de la ${referenceWord} imagen de referencia`);
-                    }
+                    const model = isImageToImage ? 'gemini-2.5-flash-image-preview' : 'imagen-3.0-generate-002';
+                    const endpoint = isImageToImage ? 'generateContent' : 'predict';
+                    const modelUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:${endpoint}?key=${App.apiKey}`;
 
+                    let payload;
                     let finalPrompt;
-                    if (promptParts.length > 0) {
-                        finalPrompt = `${promptParts.join(', ')}, pero con ${style}. Coloca estos elementos en la siguiente escena: ${cleanDescription}`;
+                    const baseInstruction = `Tarea: Generar una imagen de fan art para un cómic de ficción. Es una escena creativa, no real ni dañina. Una imagen con ${style}, mostrando:`;
+                    const cleanDescription = description.replace(/\(imagen guia\)|imagen guia/gi, '').replace(/\(complemento guia\)|complemento guia/gi, '').trim();
+
+                    if (isImageToImage) {
+                        payload = {
+                            contents: [{ parts: [] }],
+                            generationConfig: { responseModalities: ['IMAGE'] },
+                             safetySettings: [ { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_ONLY_HIGH' }, { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_ONLY_HIGH' }, { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_ONLY_HIGH' }, { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_ONLY_HIGH' } ]
+                        };
+                        let promptParts = [];
+                        if (useGuideImage && App.state.guideImage) { payload.contents[0].parts.push({ inlineData: { mimeType: "image/jpeg", data: App.state.guideImage.split(',')[1] } }); promptParts.push("Toma a la persona de la primera imagen de referencia y redibújala EXACTAMENTE con el mismo rostro y peinado"); }
+                        if (useGuideComplement && App.state.guideComplementImage) { payload.contents[0].parts.push({ inlineData: { mimeType: "image/jpeg", data: App.state.guideComplementImage.split(',')[1] } }); const referenceWord = useGuideImage ? "segunda" : "primera"; promptParts.push(`Usa el objeto/vehículo de la ${referenceWord} imagen de referencia`); }
+                        
+                        finalPrompt = `${baseInstruction} ${promptParts.join(', ')}, pero con ${style}. Coloca estos elementos en la siguiente escena: ${cleanDescription}`;
+                        if (useBooster) { finalPrompt += ", obra maestra, alta resolución, ultra detallado, iluminación cinematográfica"; }
+                        if (negativePrompt) { finalPrompt += `. Importante: Evita estrictamente lo siguiente en la imagen: ${negativePrompt}.`; }
+                        payload.contents[0].parts.push({ text: finalPrompt });
+
                     } else {
-                        finalPrompt = `Una imagen con ${style}, mostrando: ${cleanDescription}`;
+                        finalPrompt = `${baseInstruction} ${cleanDescription}`;
+                        if (useBooster) { finalPrompt += ", obra maestra, alta resolución, ultra detallado, iluminación cinematográfica"; }
+                        if (negativePrompt) { finalPrompt += `. Importante: Evita estrictamente lo siguiente en la imagen: ${negativePrompt}.`; }
+                        
+                        payload = {
+                            instances: [{ "prompt": finalPrompt }],
+                            parameters: { "sampleCount": 1 }
+                        };
                     }
-                    if (useBooster) {
-                        finalPrompt += ", obra maestra, alta resolución, ultra detallado, iluminación cinematográfica";
-                    }
-                    if (negativePrompt) {
-                        finalPrompt += `. Importante: Evita estrictamente lo siguiente en la imagen: ${negativePrompt}.`;
-                    }
+
+                    const result = await this.fetchWithBackoff(modelUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+
+                    if (result.error) throw new Error(`API Error: ${result.error.message}`);
                     
-                    payload.contents[0].parts.push({ text: finalPrompt });
-                    
-                    const result = await this.callProxy('image', payload); // Call our secure function
-                    const imagePart = result?.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
-                    const base64Data = imagePart?.inlineData?.data;
+                    const base64Data = isImageToImage 
+                        ? result.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data
+                        : result.predictions?.[0]?.bytesBase64Encoded;
 
                     if (base64Data) {
                         return `data:image/png;base64,${base64Data}`;
                     } else {
-                        const reason = result?.candidates?.[0]?.finishReason;
-                        let errorMessage = "No se pudo generar una imagen.";
-                        if (reason === 'SAFETY') errorMessage = `La imagen para "${description.substring(0, 30)}..." fue bloqueada por seguridad.`;
-                        else errorMessage = `La generación falló por una razón desconocida (API Finish Reason: ${reason || 'N/A'}).`;
+                        let errorMessage = "La generación falló. La respuesta de la API no contenía una imagen.";
+                        if (JSON.stringify(result).includes('PROHIBITED_CONTENT') || result.candidates?.[0]?.finishReason === 'PROHIBITED_CONTENT') {
+                            errorMessage = `PROHIBITED_CONTENT`;
+                        } else if (result.candidates?.[0]?.content?.parts?.[0]?.text) {
+                            errorMessage = "La IA respondió con texto en lugar de una imagen.";
+                        }
                         console.error("Fallo en la generación de imagen. Respuesta de la API:", JSON.stringify(result));
                         throw new Error(errorMessage);
                     }
@@ -823,326 +955,526 @@
             },
 
             flows: {
+                getLayoutForPanels(panelCount) {
+                     const layouts = { 1: { grid: 'grid-cols-1 grid-rows-1', panels: ['col-span-1 row-span-1'] }, 2: [{ grid: 'grid-cols-1 grid-rows-2', panels: ['row-span-1', 'row-span-1'] }, { grid: 'grid-cols-2 grid-rows-1', panels: ['col-span-1', 'col-span-1'] }], 3: [{ grid: 'grid-cols-2 grid-rows-2', panels: ['col-span-2 row-span-1', 'col-span-1 row-span-1', 'col-span-1 row-span-1'] }, { grid: 'grid-cols-2 grid-rows-2', panels: ['col-span-1 row-span-2', 'col-span-1 row-span-1', 'col-span-1 row-span-1'] }], 4: [{ grid: 'grid-cols-2 grid-rows-2', panels: ['col-span-1', 'col-span-1', 'col-span-1', 'col-span-1'] }, { grid: 'grid-cols-2 grid-rows-3', panels: ['col-span-2 row-span-1', 'col-span-1 row-span-2', 'col-span-1 row-span-2'] }] };
+                    if (!layouts[panelCount]) return { grid: 'grid-cols-1', panels: [] };
+                    return Array.isArray(layouts[panelCount]) ? layouts[panelCount][Math.floor(Math.random() * layouts[panelCount].length)] : layouts[panelCount];
+                },
+                addBlankPage() {
+                    const blankPageData = {
+                        id: `page-${Date.now()}`,
+                        layout: this.getLayoutForPanels(4),
+                        panels: Array(4).fill(null).map((_, i) => ({
+                            id: `blank-${Date.now()}-${i}`,
+                            imageUrl: null,
+                            dialogue: '',
+                            description: 'Panel en blanco'
+                        }))
+                    };
+                    App.state.storyPages.push(blankPageData);
+                    App.render();
+                    App.ui.showToast('Página en blanco añadida.');
+                },
                 async runGenerationProcess(prompt, tone, arc, useGuideImage, useGuideComplement) {
                     if (App.dom.generateBtn.disabled) return;
+                     if (!App.apiKey) {
+                        App.ui.showErrorModal("La clave de API de desarrollo no ha sido añadida. Por favor, pégala en el lugar marcado al principio del script.");
+                        return;
+                    }
                     App.ui.setPageLoading(true, "Creando el guion...");
                     App.dom.pageCanvas.innerHTML = '';
                     App.dom.pageActionsWrapper.classList.add('hidden');
-
                     try {
                         const script = await App.api.generateScript(prompt, tone, arc);
-                        App.state.lastGeneratedScript = script;
-
-                        if (!script || !Array.isArray(script) || script.length === 0) {
-                            throw new Error("La IA no devolvió un guion válido. Intenta reformular tu idea.");
-                        }
+                        if (!script || !Array.isArray(script) || script.length === 0) { throw new Error("La IA no devolvió un guion válido. Intenta reformular tu idea."); }
                         
-                        const maxAttempts = 3;
+                        const maxAttempts = 4;
                         let panelData = script.map(panel => ({ ...panel, imageUrl: null, error: null }));
                         let failedPanelIndexes = panelData.map((_, index) => index);
-
+                        
                         for (let attempt = 1; attempt <= maxAttempts && failedPanelIndexes.length > 0; attempt++) {
                             App.ui.setPageLoading(true, `Generando ${failedPanelIndexes.length} imágenes (intento ${attempt}/${maxAttempts})...`);
-                            
-                            const promisesForFailed = failedPanelIndexes.map(index => 
-                                App.api.generateImageForPanel(panelData[index].description, useGuideImage, useGuideComplement)
-                            );
-
+                            const promisesForFailed = failedPanelIndexes.map(index => App.api.generateImageForPanel(panelData[index].description, useGuideImage, useGuideComplement));
                             const results = await Promise.allSettled(promisesForFailed);
                             const stillFailingIndexes = [];
                             results.forEach((result, i) => {
                                 const originalPanelIndex = failedPanelIndexes[i];
-                                if (result.status === 'fulfilled') {
-                                    panelData[originalPanelIndex].imageUrl = result.value;
-                                    panelData[originalPanelIndex].error = null;
-                                } else {
-                                    panelData[originalPanelIndex].error = result.reason.message;
-                                    stillFailingIndexes.push(originalPanelIndex);
+                                if (result.status === 'fulfilled') { 
+                                    panelData[originalPanelIndex].imageUrl = result.value; 
+                                    panelData[originalPanelIndex].error = null; 
+                                } else { 
+                                    panelData[originalPanelIndex].error = result.reason.message; 
+                                    stillFailingIndexes.push(originalPanelIndex); 
                                 }
                             });
                             failedPanelIndexes = stillFailingIndexes;
                         }
-
+                        
+                        App.state.lastGeneratedScript = panelData; 
+                        
                         App.ui.setPageLoading(true, "Componiendo la página final...");
                         App.ui.renderGeneratedPage(panelData);
                         App.dom.pageActionsWrapper.classList.remove('hidden');
-
                     } catch (error) {
                         console.error("Error detallado en el proceso de generación:", error);
                         App.ui.showErrorModal(`Ocurrió un error en la creación: ${error.message}`);
                         App.dom.pageCanvas.innerHTML = '<div class="manga-panel flex items-center justify-center text-center text-gray-500 p-4"><p>La generación falló. Inténtalo de nuevo.</p></div>';
-                    } finally {
-                        App.ui.setPageLoading(false);
-                    }
+                    } finally { App.ui.setPageLoading(false); }
                 },
                 generateFullPage() {
                     const characters = App.dom.promptCharacters.value.trim();
                     const setting = App.dom.promptSetting.value.trim();
                     const action = App.dom.promptAction.value.trim();
-                    const fullPromptText = `${characters} ${setting} ${action}`.toLowerCase();
-
-                    if (!action) {
-                        App.ui.showErrorModal("Por favor, describe la 'Acción Principal de la Página'.");
-                        return;
-                    }
-
+                    if (!action) { App.ui.showErrorModal("Por favor, describe la 'Acción Principal de la Página'."); return; }
                     const combinedPrompt = `Personajes: ${characters || 'No especificados'}. Lugar: ${setting || 'No especificado'}. Acción de la página: ${action}.`;
                     App.state.lastPrompt = combinedPrompt;
-                    
+                    const fullPromptText = `${characters} ${setting} ${action}`.toLowerCase();
                     App.state.useGuideImageForCurrentStory = App.state.guideImage && fullPromptText.includes('imagen guia');
                     App.state.useGuideComplementForCurrentStory = App.state.guideComplementImage && fullPromptText.includes('complemento guia');
-
                     const tone = App.dom.fullPageTone.value;
                     const arc = App.dom.fullPageArc.value;
                     this.runGenerationProcess(combinedPrompt, tone, arc, App.state.useGuideImageForCurrentStory, App.state.useGuideComplementForCurrentStory);
                 },
                 continueStory() {
-                    if (!App.state.lastGeneratedScript || App.state.lastGeneratedScript.length === 0) {
-                        App.ui.showErrorModal("Primero debes generar una página para poder continuar la historia.");
-                        return;
-                    }
-                    
+                    if (!App.state.lastGeneratedScript || App.state.lastGeneratedScript.length === 0) { App.ui.showErrorModal("Primero debes generar una página para poder continuar la historia."); return; }
                     const lastPanel = App.state.lastGeneratedScript[App.state.lastGeneratedScript.length - 1];
                     const lastSceneSummary = `La última viñeta mostraba: ${lastPanel.description.trim()} ${lastPanel.dialogue ? `(con el diálogo: "${lastPanel.dialogue.trim()}")` : ''}`;
                     const continuationPrompt = `La historia principal es sobre: "${App.state.lastPrompt}". ${lastSceneSummary}. Continúa la historia a partir de este punto, generando las siguientes 3 o 4 viñetas.`;
                     const tone = App.dom.fullPageTone.value;
-                    
                     this.runGenerationProcess(continuationPrompt, tone, "el nudo (desarrollo, punto de inflexion)", App.state.useGuideImageForCurrentStory, App.state.useGuideComplementForCurrentStory);
                 },
-                async addPageToStory() {
-                    if (typeof html2canvas === 'undefined') {
-                        App.ui.showErrorModal("Error crítico: La librería de renderizado no ha cargado. Por favor, refresca la página.");
+                addPageToStory() {
+                    if (!App.state.lastGeneratedScript || !App.state.lastGeneratedLayout) {
+                        App.ui.showErrorModal("No hay una página generada para añadir a la historia.");
                         return;
                     }
-                    App.ui.showToast("Guardando página...");
-                    try {
-                        const canvas = await html2canvas(App.dom.pageCanvas, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
-                        const imageDataUrl = canvas.toDataURL('image/png', 1.0);
-                        App.state.storyPages.push(imageDataUrl);
-                        App.ui.updateStoryEditorUI();
-                        App.ui.showToast("¡Página añadida a tu historia!");
-                        App.ui.switchTab('story');
-                    } catch (error) {
-                        console.error("Error al guardar la página en la historia:", error);
-                        App.ui.showErrorModal("No se pudo guardar la página como imagen.");
-                    }
+                     const newPageData = {
+                        id: `page-${Date.now()}`,
+                        layout: App.state.lastGeneratedLayout,
+                        panels: App.state.lastGeneratedScript.map((panel, index) => ({
+                            id: `panel-${Date.now()}-${index}`,
+                            imageUrl: panel.imageUrl,
+                            dialogue: panel.dialogue,
+                            description: panel.description,
+                            error: panel.error
+                        }))
+                    };
+                    App.state.storyPages.push(newPageData);
+                    App.render();
+                    App.ui.showToast("¡Página añadida a tu historia!");
+                    App.ui.switchTab('story');
                 }
             },
             
             handlers: {
-                handleGuideImageUpload(e) {
-                    const file = e.target.files[0];
-                    if (file) {
-                        const reader = new FileReader();
-                        reader.onload = (ev) => {
-                            App.state.guideImage = ev.target.result;
-                            App.dom.guideImagePreview.src = App.state.guideImage;
-                            App.dom.guideImagePreview.classList.remove('hidden');
-                            App.dom.guideImagePlaceholder.classList.add('hidden');
-                            App.dom.removeGuideImageBtn.classList.remove('hidden');
-                        };
-                        reader.readAsDataURL(file);
+                toggleMusic() {
+                    // If the audio player doesn't exist yet, create it on the first click.
+                    if (!App.state.audioPlayer) {
+                        App.state.audioPlayer = new Audio('https://cdn.pixabay.com/audio/2022/02/07/audio_c4d51b38b3.mp3');
+                        App.state.audioPlayer.loop = true;
+                    }
+
+                    const { audioPlayer } = App.state;
+                    
+                    if (audioPlayer.paused) {
+                        const playPromise = audioPlayer.play();
+                        if (playPromise !== undefined) {
+                            playPromise.then(() => {
+                                App.state.isMusicPlaying = true;
+                                App.dom.musicIconOn.classList.remove('hidden');
+                                App.dom.musicIconOff.classList.add('hidden');
+                            }).catch(error => {
+                                console.error("Audio playback failed:", error);
+                                App.ui.showToast("Para activar el audio, haz clic de nuevo en el altavoz.");
+                                App.state.isMusicPlaying = false;
+                                App.dom.musicIconOn.classList.add('hidden');
+                                App.dom.musicIconOff.classList.remove('hidden');
+                            });
+                        }
+                    } else {
+                        audioPlayer.pause();
+                        App.state.isMusicPlaying = false;
+                        App.dom.musicIconOn.classList.add('hidden');
+                        App.dom.musicIconOff.classList.remove('hidden');
                     }
                 },
-                handleRemoveGuideImage(e) {
-                    e.preventDefault(); e.stopPropagation();
-                    App.state.guideImage = null;
-                    App.dom.guideImageUpload.value = '';
-                    App.dom.guideImagePreview.src = '';
-                    App.dom.guideImagePreview.classList.add('hidden');
-                    App.dom.guideImagePlaceholder.classList.remove('hidden');
-                    App.dom.removeGuideImageBtn.classList.add('hidden');
-                },
-                handleGuideComplementUpload(e) {
-                    const file = e.target.files[0];
-                    if (file) {
-                        const reader = new FileReader();
-                        reader.onload = (ev) => {
-                            App.state.guideComplementImage = ev.target.result;
-                            App.dom.guideComplementPreview.src = App.state.guideComplementImage;
-                            App.dom.guideComplementPreview.classList.remove('hidden');
-                            App.dom.guideComplementPlaceholder.classList.add('hidden');
-                            App.dom.removeGuideComplementBtn.classList.remove('hidden');
+                async resizeImage(file) {
+                    const MAX_DIMENSION = 1024;
+                    const reader = new FileReader();
+                    return new Promise((resolve, reject) => {
+                        reader.onload = (e) => {
+                            const img = new Image();
+                            img.onload = () => {
+                                let { width, height } = img;
+                                if (width > height) {
+                                    if (width > MAX_DIMENSION) { height *= MAX_DIMENSION / width; width = MAX_DIMENSION; }
+                                } else {
+                                    if (height > MAX_DIMENSION) { width *= MAX_DIMENSION / height; height = MAX_DIMENSION; }
+                                }
+                                const canvas = document.createElement('canvas');
+                                canvas.width = width;
+                                canvas.height = height;
+                                const ctx = canvas.getContext('2d');
+                                ctx.drawImage(img, 0, 0, width, height);
+                                resolve(canvas.toDataURL('image/jpeg', 0.9)); // Use JPEG for better compression
+                            };
+                            img.onerror = reject;
+                            img.src = e.target.result;
                         };
+                        reader.onerror = reject;
                         reader.readAsDataURL(file);
+                    });
+                },
+                async handleGuideImageUpload(e, stateKey) {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    App.ui.showToast("Optimizando imagen...");
+                    try {
+                        const resizedDataUrl = await this.resizeImage(file);
+                        App.state[stateKey] = resizedDataUrl;
+                        
+                        const isComplement = stateKey === 'guideComplementImage';
+                        const preview = isComplement ? App.dom.guideComplementPreview : App.dom.guideImagePreview;
+                        const placeholder = isComplement ? App.dom.guideComplementPlaceholder : App.dom.guideImagePlaceholder;
+                        const removeBtn = isComplement ? App.dom.removeGuideComplementBtn : App.dom.removeGuideImageBtn;
+
+                        preview.src = resizedDataUrl;
+                        preview.classList.remove('hidden');
+                        placeholder.classList.add('hidden');
+                        removeBtn.classList.remove('hidden');
+                        App.ui.showToast("Imagen lista.");
+                    } catch (error) {
+                        App.ui.showErrorModal("No se pudo procesar la imagen. Intenta con otra.");
+                        console.error("Error resizing image:", error);
                     }
                 },
-                handleRemoveGuideComplement(e) {
+                handleRemoveGuideImage(e, stateKey) {
                     e.preventDefault(); e.stopPropagation();
-                    App.state.guideComplementImage = null;
-                    App.dom.guideComplementUpload.value = '';
-                    App.dom.guideComplementPreview.src = '';
-                    App.dom.guideComplementPreview.classList.add('hidden');
-                    App.dom.guideComplementPlaceholder.classList.remove('hidden');
-                    App.dom.removeGuideComplementBtn.classList.add('hidden');
+                    App.state[stateKey] = null;
+
+                    const isComplement = stateKey === 'guideComplementImage';
+                    const uploadInput = isComplement ? App.dom.guideComplementUpload : App.dom.guideImageUpload;
+                    const preview = isComplement ? App.dom.guideComplementPreview : App.dom.guideImagePreview;
+                    const placeholder = isComplement ? App.dom.guideComplementPlaceholder : App.dom.guideImagePlaceholder;
+                    const removeBtn = isComplement ? App.dom.removeGuideComplementBtn : App.dom.removeGuideImageBtn;
+
+                    uploadInput.value = '';
+                    preview.src = '';
+                    preview.classList.add('hidden');
+                    placeholder.classList.remove('hidden');
+                    removeBtn.classList.add('hidden');
                 },
                 async handleStoryBoardClick(e) {
                     const button = e.target.closest('button[data-action]');
                     if (!button) return;
-
                     e.preventDefault();
 
-                    const { action, index } = button.dataset;
+                    const { action, pageId } = button.dataset;
+                    const pageIndex = App.state.storyPages.findIndex(p => p.id === pageId);
+                    if (pageIndex === -1) return;
                     
                     if (action === 'add-to-animation') {
-                        const pageSrc = App.state.storyPages[index];
-                        App.animation.addFrame(pageSrc);
-                    } else if (action === 'download') {
-                        const pageSrc = App.state.storyPages[index];
-                        const link = document.createElement('a');
-                        link.href = pageSrc;
-                        link.download = `manga-page-${parseInt(index) + 1}.png`;
-                        link.className = 'btn btn-primary';
-                        link.textContent = 'Descargar Página';
-                        App.ui.showDownloadModal(link);
-                        
-                    } else if (action === 'delete') {
-                        App.state.storyPages.splice(index, 1);
-                        App.render();
-                        App.ui.showToast("Página eliminada.");
+                        App.handlers.captureAndProcessPage(pageIndex, (imageDataUrl) => {
+                            App.animation.addFrame(imageDataUrl);
+                        });
+                    } else if (action === 'download') { 
+                        App.handlers.captureAndProcessPage(pageIndex, (imageDataUrl, blob) => {
+                            const blobUrl = URL.createObjectURL(blob);
+                            const link = document.createElement('a'); 
+                            link.href = blobUrl; 
+                            link.download = `manga-page-${pageIndex + 1}.png`; 
+                            link.className = 'btn btn-primary'; 
+                            link.textContent = 'Descargar Página'; 
+                            App.ui.showDownloadModal(link);
+                        });
+                    } else if (action === 'delete') { 
+                        App.state.storyPages.splice(pageIndex, 1); 
+                        App.render(); 
+                        App.ui.showToast("Página eliminada."); 
                     }
+                },
+                async captureAndProcessPage(pageIndex, callback) {
+                    const pageData = App.state.storyPages[pageIndex];
+                    const tempCanvas = document.createElement('div');
+                    tempCanvas.style.position = 'absolute';
+                    tempCanvas.style.left = '-9999px';
+                    tempCanvas.style.width = '1000px'; 
+                    document.body.appendChild(tempCanvas);
+
+                    const imageLoadPromises = pageData.panels
+                        .filter(p => p.imageUrl)
+                        .map(p => new Promise((resolve) => {
+                            const img = new Image();
+                            img.crossOrigin = 'Anonymous';
+                            img.onload = resolve;
+                            img.onerror = resolve; 
+                            img.src = p.imageUrl;
+                        }));
+                    
+                    await Promise.all(imageLoadPromises);
+                    
+                    App.ui.renderPage(tempCanvas, pageData);
+                    App.ui.showToast("Procesando página...");
+
+                    try {
+                        const canvas = await html2canvas(tempCanvas, { scale: 4, useCORS: true, backgroundColor: '#ffffff', logging: false });
+                        document.body.removeChild(tempCanvas);
+                        const imageDataUrl = canvas.toDataURL('image/png', 1.0);
+                        canvas.toBlob(blob => {
+                            callback(imageDataUrl, blob);
+                        }, 'image/png');
+                    } catch(err) {
+                        document.body.removeChild(tempCanvas);
+                        App.ui.showErrorModal("No se pudo generar la imagen para la acción solicitada.");
+                        console.error("Error during canvas capture:", err);
+                    }
+                },
+                handleDragStart(e) {
+                    const target = e.target;
+                    if (target.classList.contains('manga-panel')) {
+                        App.state.draggedPanelInfo = {
+                            pageId: target.dataset.pageId,
+                            panelId: target.dataset.panelId
+                        };
+                        e.dataTransfer.effectAllowed = 'move';
+                    }
+                },
+                handleDragOver(e) {
+                    e.preventDefault();
+                    const target = e.target;
+                    if (target.classList.contains('manga-panel')) {
+                        target.classList.add('drag-over');
+                        e.dataTransfer.dropEffect = 'move';
+                    }
+                },
+                handleDragLeave(e) {
+                    const target = e.target;
+                    if (target.classList.contains('manga-panel')) {
+                        target.classList.remove('drag-over');
+                    }
+                },
+                handleDrop(e) {
+                    e.preventDefault();
+                    const target = e.target;
+                    if (!target.classList.contains('manga-panel') || !App.state.draggedPanelInfo) {
+                        return;
+                    }
+                    target.classList.remove('drag-over');
+
+                    const { pageId: fromPageId, panelId: fromPanelId } = App.state.draggedPanelInfo;
+                    const { pageId: toPageId, panelId: toPanelId } = target.dataset;
+
+                    if (fromPageId === toPageId && fromPanelId === toPanelId) return;
+
+                    const fromPageIndex = App.state.storyPages.findIndex(p => p.id === fromPageId);
+                    const fromPanelIndex = App.state.storyPages[fromPageIndex].panels.findIndex(p => p.id === fromPanelId);
+                    
+                    const toPageIndex = App.state.storyPages.findIndex(p => p.id === toPageId);
+                    const toPanelIndex = App.state.storyPages[toPageIndex].panels.findIndex(p => p.id === toPanelId);
+
+                    const fromPanelData = App.state.storyPages[fromPageIndex].panels[fromPanelIndex];
+                    const toPanelData = App.state.storyPages[toPageIndex].panels[toPanelIndex];
+                    
+                    // Swap the panel data
+                    App.state.storyPages[fromPageIndex].panels[fromPanelIndex] = toPanelData;
+                    App.state.storyPages[toPageIndex].panels[toPanelIndex] = fromPanelData;
+                    
+                    App.render();
+                    App.ui.showToast("Viñeta intercambiada.");
+                    App.state.draggedPanelInfo = null;
+                },
+                handleStoryBoardDblClick(e) {
+                    const panel = e.target.closest('.manga-panel');
+                    if (panel) {
+                        const pageId = panel.dataset.pageId;
+                        const panelId = panel.dataset.panelId;
+                        const page = App.state.storyPages.find(p => p.id === pageId);
+                        const panelData = page?.panels.find(p => p.id === panelId);
+                        
+                        if(panelData && panelData.dialogue !== undefined) {
+                            this.createDialogueEditor(panel, pageId, panelId, panelData);
+                        }
+                    }
+                },
+                createDialogueEditor(panelElement, pageId, panelId, panelData) {
+                    const existingEditor = document.getElementById('dialogue-editor-wrapper');
+                    if (existingEditor) existingEditor.remove();
+
+                    const bubble = panelElement.querySelector('.dialogue-bubble');
+                    if(bubble) bubble.style.display = 'none';
+
+                    const defaultConfig = { width: 180, height: 60, top: 80, left: 50, fontSize: 11 };
+                    const config = { ...defaultConfig, ...panelData.dialogueConfig };
+
+                    const editorWrapper = document.createElement('div');
+                    editorWrapper.id = 'dialogue-editor-wrapper';
+                    editorWrapper.className = 'dialogue-editor-wrapper';
+                    editorWrapper.style.width = `${config.width}px`;
+                    editorWrapper.style.height = `${config.height}px`;
+                    editorWrapper.style.top = `${config.top}%`;
+                    editorWrapper.style.left = `${config.left}%`;
+                    editorWrapper.style.transform = 'translate(-50%, -50%)';
+
+                    const textarea = document.createElement('textarea');
+                    textarea.className = 'dialogue-editor';
+                    textarea.value = panelData.dialogue;
+                    textarea.style.fontSize = `${config.fontSize}px`;
+
+                    const resizeHandle = document.createElement('div');
+                    resizeHandle.className = 'resize-handle';
+                    
+                    const fontControls = document.createElement('div');
+                    fontControls.className = 'font-size-controls';
+                    fontControls.innerHTML = `
+                        <button class="font-size-btn" data-action="decrease-font">-</button>
+                        <button class="font-size-btn" data-action="increase-font">+</button>
+                    `;
+
+                    editorWrapper.appendChild(fontControls);
+                    editorWrapper.appendChild(textarea);
+                    editorWrapper.appendChild(resizeHandle);
+                    panelElement.appendChild(editorWrapper);
+                    
+                    textarea.focus();
+
+                    const saveChanges = () => {
+                        const newConfig = {
+                            text: textarea.value,
+                            width: parseInt(editorWrapper.style.width),
+                            height: parseInt(editorWrapper.style.height),
+                            top: parseFloat(editorWrapper.style.top),
+                            left: parseFloat(editorWrapper.style.left),
+                            fontSize: parseFloat(textarea.style.fontSize)
+                        };
+                        
+                        const page = App.state.storyPages.find(p => p.id === pageId);
+                        const panel = page?.panels.find(p => p.id === panelId);
+                        if (panel) {
+                            panel.dialogue = newConfig.text;
+                            panel.dialogueConfig = newConfig;
+                        }
+                        editorWrapper.remove();
+                        if(bubble) bubble.style.display = 'block';
+                        App.render();
+                        document.removeEventListener('click', closeOnOutsideClick);
+                    };
+                    
+                    const closeOnOutsideClick = (e) => {
+                         if (!editorWrapper.contains(e.target)) {
+                            saveChanges();
+                         }
+                    };
+                    setTimeout(() => document.addEventListener('click', closeOnOutsideClick), 0);
+
+                    editorWrapper.addEventListener('click', e => e.stopPropagation());
+
+                    // Dragging logic
+                    let isDragging = false;
+                    let initialX, initialY, offsetX, offsetY;
+                    editorWrapper.addEventListener('mousedown', (e) => {
+                        if (e.target !== resizeHandle) {
+                           isDragging = true;
+                           initialX = e.clientX;
+                           initialY = e.clientY;
+                           const rect = editorWrapper.getBoundingClientRect();
+                           const parentRect = panelElement.getBoundingClientRect();
+                           offsetX = rect.left - parentRect.left;
+                           offsetY = rect.top - parentRect.top;
+                           editorWrapper.style.cursor = 'grabbing';
+                        }
+                    });
+
+                    // Resizing logic
+                    let isResizing = false;
+                    resizeHandle.addEventListener('mousedown', (e) => {
+                        isResizing = true;
+                        initialX = e.clientX;
+                        initialY = e.clientY;
+                        const rect = editorWrapper.getBoundingClientRect();
+                        offsetX = rect.width;
+                        offsetY = rect.height;
+                    });
+
+                    panelElement.addEventListener('mousemove', (e) => {
+                        if (isDragging) {
+                            const dx = e.clientX - initialX;
+                            const dy = e.clientY - initialY;
+                            const newX = ((offsetX + dx) / panelElement.offsetWidth) * 100 + (editorWrapper.offsetWidth / 2 / panelElement.offsetWidth * 100);
+                            const newY = ((offsetY + dy) / panelElement.offsetHeight) * 100 + (editorWrapper.offsetHeight / 2 / panelElement.offsetHeight * 100);
+                            editorWrapper.style.left = `${Math.max(0, Math.min(100, newX))}%`;
+                            editorWrapper.style.top = `${Math.max(0, Math.min(100, newY))}%`;
+                        } else if (isResizing) {
+                            const dx = e.clientX - initialX;
+                            const dy = e.clientY - initialY;
+                            editorWrapper.style.width = `${Math.max(50, offsetX + dx)}px`;
+                            editorWrapper.style.height = `${Math.max(30, offsetY + dy)}px`;
+                        }
+                    });
+
+                    document.addEventListener('mouseup', () => {
+                        isDragging = false;
+                        isResizing = false;
+                        editorWrapper.style.cursor = 'move';
+                    });
+                    
+                    fontControls.addEventListener('click', (e) => {
+                        const action = e.target.dataset.action;
+                        let currentSize = parseFloat(textarea.style.fontSize) || config.fontSize;
+                        if(action === 'increase-font') {
+                            currentSize += 1;
+                        } else if(action === 'decrease-font') {
+                            currentSize = Math.max(8, currentSize - 1); // Minimum font size of 8px
+                        }
+                        textarea.style.fontSize = `${currentSize}px`;
+                    });
+                },
+                 handleZoomChange(e) {
+                    const value = e.target.value;
+                    App.dom.dynamicStoryStyles.innerHTML = `.story-page-wrapper { width: calc(${value}% - 2rem); }`;
                 }
             },
             
             animation: {
-                addFrame(src) {
-                    App.state.animationFrames.push(src);
-                    App.ui.updateAnimationFramesUI();
-                    App.ui.showToast(`Página añadida a la animación. Total: ${App.state.animationFrames.length}`);
-                    App.ui.switchTab('animation');
-                },
-                
+                addFrame(src) { App.state.animationFrames.push(src); App.ui.updateAnimationFramesUI(); App.ui.showToast(`Página añadida a la animación. Total: ${App.state.animationFrames.length}`); App.ui.switchTab('animation'); },
                 playNextFrame(currentFrameIndex) {
-                    const { animImg1, animImg2 } = App.dom;
-                    const { activeAnimImage, animationFrames, currentTransition } = App.state;
-
+                    const { animImg1, animImg2 } = App.dom; const { activeAnimImage, animationFrames, currentTransition } = App.state;
                     const nextFrameIndex = (currentFrameIndex + 1) % animationFrames.length;
                     const nextImageSrc = animationFrames[nextFrameIndex];
-
-                    const currentImg = activeAnimImage;
-                    const nextImg = (currentImg === animImg1) ? animImg2 : animImg1;
-                    
+                    const currentImg = activeAnimImage; const nextImg = (currentImg === animImg1) ? animImg2 : animImg1;
                     nextImg.src = nextImageSrc;
-
-                    if(currentTransition === 'none') {
-                        currentImg.classList.add('anim-img-hidden');
-                        nextImg.classList.remove('anim-img-hidden');
-                    } else if (currentTransition === 'fade') {
-                        currentImg.classList.add('fade-out');
-                        currentImg.classList.remove('fade-in');
-                        nextImg.classList.remove('fade-out', 'anim-img-hidden');
-                        nextImg.classList.add('fade-in');
-                    } else if (currentTransition === 'slide') {
-                        currentImg.classList.add('slide-out');
-                        
-                        nextImg.classList.add('slide-in-initial');
-                        nextImg.classList.remove('anim-img-hidden');
-                        
-                        void nextImg.offsetWidth; 
-                        
-                        nextImg.classList.remove('slide-in-initial');
-                        nextImg.classList.add('slide-in');
-                    }
-                    
+                    if(currentTransition === 'none') { currentImg.classList.add('anim-img-hidden'); nextImg.classList.remove('anim-img-hidden'); } 
+                    else if (currentTransition === 'fade') { currentImg.classList.add('fade-out'); currentImg.classList.remove('fade-in'); nextImg.classList.remove('fade-out', 'anim-img-hidden'); nextImg.classList.add('fade-in'); } 
+                    else if (currentTransition === 'slide') { currentImg.classList.add('slide-out'); nextImg.classList.add('slide-in-initial'); nextImg.classList.remove('anim-img-hidden'); void nextImg.offsetWidth; nextImg.classList.remove('slide-in-initial'); nextImg.classList.add('slide-in'); }
                     App.state.activeAnimImage = nextImg;
                     return nextFrameIndex;
                 },
-
                 toggle() {
                     if (App.state.animationFrames.length < 1) return;
                     App.state.isPlaying = !App.state.isPlaying;
                     App.dom.playPauseBtn.textContent = App.state.isPlaying ? '❚❚ Pause' : '▶ Play';
-                    
                     if (App.state.isPlaying) {
                         let currentFrame = App.state.animationFrames.indexOf(App.state.activeAnimImage.src);
                         if(currentFrame === -1) currentFrame = 0;
-
                         clearInterval(App.state.animationInterval);
-                        App.state.animationInterval = setInterval(() => {
-                            if (App.state.animationFrames.length === 0) {
-                                this.toggle(); return;
-                            }
-                            currentFrame = this.playNextFrame(currentFrame);
-                        }, 1000 / App.state.fps);
-                    } else {
-                        clearInterval(App.state.animationInterval);
-                    }
+                        App.state.animationInterval = setInterval(() => { if (App.state.animationFrames.length === 0) { this.toggle(); return; } currentFrame = this.playNextFrame(currentFrame); }, 1000 / App.state.fps);
+                    } else { clearInterval(App.state.animationInterval); }
                 },
-                setFps(value) {
-                    App.state.fps = parseInt(value, 10);
-                    App.dom.fpsValue.textContent = App.state.fps;
-                    if (App.state.isPlaying) {
-                        this.toggle(); 
-                        this.toggle();
-                    }
-                },
-                setTransition(value) {
-                    App.state.currentTransition = value;
-                },
-                clear() {
-                    if (App.state.isPlaying) this.toggle();
-                    App.state.animationFrames = [];
-                    App.render();
-                },
+                setFps(value) { App.state.fps = parseInt(value, 10); App.dom.fpsValue.textContent = App.state.fps; if (App.state.isPlaying) { this.toggle(); this.toggle(); } },
+                setTransition(value) { App.state.currentTransition = value; },
+                clear() { if (App.state.isPlaying) this.toggle(); App.state.animationFrames = []; App.render(); },
                 async download() {
-                    if (App.state.animationFrames.length === 0) {
-                        App.ui.showErrorModal("No hay frames en la animación para descargar.");
-                        return;
-                    }
-                    if (typeof GIF === 'undefined') {
-                        App.ui.showErrorModal("La librería de animación (gif.js) no se ha cargado.");
-                        return;
-                    }
-
+                    if (App.state.animationFrames.length === 0) { App.ui.showErrorModal("No hay frames para descargar."); return; }
+                    if (typeof GIF === 'undefined') { App.ui.showErrorModal("La librería de animación (gif.js) no se ha cargado."); return; }
                     App.ui.setPageLoading(true, `Preparando GIF... 0/${App.state.animationFrames.length}`);
-                    
                     try {
-                        const gif = new GIF({
-                            workers: 2,
-                            quality: 10,
-                            width: 500, 
-                            height: 750,
-                        });
-
-                        const imagePromises = App.state.animationFrames.map(src => {
-                            return new Promise((resolve, reject) => {
-                                const img = new Image();
-                                img.crossOrigin = "Anonymous";
-                                img.onload = () => resolve(img);
-                                img.onerror = reject;
-                                img.src = src;
-                            });
-                        });
-
+                        const gif = new GIF({ workers: 2, quality: 10, width: 500, height: 750, });
+                        const imagePromises = App.state.animationFrames.map(src => new Promise((resolve, reject) => { const img = new Image(); img.crossOrigin = "Anonymous"; img.onload = () => resolve(img); img.onerror = reject; img.src = src; }));
                         const loadedImages = await Promise.all(imagePromises);
-                        
-                        for (let i = 0; i < loadedImages.length; i++) {
-                            App.ui.setPageLoading(true, `Procesando frame ${i + 1}/${loadedImages.length}`);
-                            gif.addFrame(loadedImages[i], { delay: 1000 / App.state.fps });
-                        }
-
-                        gif.on('finished', function(blob) {
-                            App.ui.setPageLoading(false);
-                            const url = URL.createObjectURL(blob);
-                            const link = document.createElement('a');
-                            link.href = url;
-                            link.download = 'manga-studio-animation.gif';
-                            link.className = 'btn btn-primary';
-                            link.textContent = 'Descargar Animación GIF';
-                            App.ui.showDownloadModal(link);
-                        });
-                        
-                        gif.on('progress', function(p) {
-                            App.ui.setPageLoading(true, `Renderizando GIF: ${Math.round(p * 100)}%`);
-                        });
-                        
+                        for (let i = 0; i < loadedImages.length; i++) { App.ui.setPageLoading(true, `Procesando frame ${i + 1}/${loadedImages.length}`); gif.addFrame(loadedImages[i], { delay: 1000 / App.state.fps }); }
+                        gif.on('finished', function(blob) { App.ui.setPageLoading(false); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = 'manga-studio-animation.gif'; link.className = 'btn btn-primary'; link.textContent = 'Descargar Animación GIF'; App.ui.showDownloadModal(link); });
+                        gif.on('progress', function(p) { App.ui.setPageLoading(true, `Renderizando GIF: ${Math.round(p * 100)}%`); });
                         gif.render();
-
-                    } catch (error) {
-                        console.error("Error creando el GIF:", error);
-                        App.ui.showErrorModal("No se pudo crear el GIF. Puede que alguna imagen no se haya cargado correctamente.");
-                        App.ui.setPageLoading(false);
-                    }
+                    } catch (error) { console.error("Error creando el GIF:", error); App.ui.showErrorModal("No se pudo crear el GIF. Puede que alguna imagen no se haya cargado bien."); App.ui.setPageLoading(false); }
                 }
             }
         };
